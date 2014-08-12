@@ -1,6 +1,5 @@
 library('caret')
-library('ggplot2')
-
+library('Hmisc')
 
 dataSet <- read.csv('train.csv', stringsAsFactors=FALSE)
 
@@ -12,7 +11,7 @@ prepareData <- function(data) {
   data$Pclass <- as.factor(data$Pclass)
   data$Sex <- as.factor(data$Sex)
   data[is.na(data$Age),]$Age <- median(data$Age, na.rm=TRUE)
-  data$AgeGroup <- cut(data$Age, breaks=c((0:6)*10, 100))
+  data$AgeGroup <- cut2(data$Age, g=4)
   if(nrow(data[is.na(data$Fare),]) > 0) {
     data[is.na(data$Fare),]$Fare <- median(data$Fare, na.rm=TRUE)
   }
@@ -27,11 +26,17 @@ prepareData <- function(data) {
   data[data$Cabin != '',]$HasCabin <- 1
   data$HasCabin <- as.factor(data$HasCabin)
   
+  if(nrow(data[data$Embarked == '',]) > 0) {
+    data[data$Embarked == '',]$Embarked <- 'S'
+  }
+  data$Embarked <- as.factor(data$Embarked)
+  
   data
 }
 
 
 dataSetP <- prepareData(dataSet)
+summary(dataSetP)
 
 dataSetP$Survived <- as.factor(dataSetP$Survived)
 dataSetP$SurvivedInt <- dataSet$Survived
@@ -46,9 +51,7 @@ dataSetP$IsChild <- 0
 dataSetP[dataSetP$Age < 18,]$IsChild <- 1
 dataSetP$IsChild <- as.factor(dataSetP$IsChild)
 
-dataSetP$Embarked <- dataSet$Embarked
-dataSetP[dataSetP$Embarked == '',]$Embarked <- 'S'
-dataSetP$Embarked <- as.factor(dataSetP$Embarked)
+
 summary(dataSetP$Embarked)
 
 dataSetP$PclassInt <- as.integer(dataSetP$Pclass)^2
@@ -107,7 +110,7 @@ table(dataSetP$Survived, dataSetP$MaleLuck)
 summary(dataSetP)
 str(dataSetP)
 
-set.seed(32133)
+set.seed(32132)
 
 inTrain <- createDataPartition(dataSetP$Survived, p=.75, list = FALSE)
 trainDS <- dataSetP[inTrain,]
@@ -115,23 +118,61 @@ testDS <- dataSetP[-inTrain,]
 summary(trainDS)
 
 qplot(Survived, data=trainDS, fill=HasRelatives, geom='bar')
+featurePlot(trainDS, y=trainDS$Survived, plot='pairs')
 
-#train Model #################################################
-formula <- Survived ~ Sex + Pclass + Fare
+trainBG <- split(trainDS, trainDS$Sex)
+testBG <- split(testDS, testDS$Sex)
+summary(testBG[[2]])
 
-mf1 <- train(formula, method="rf", prox=TRUE, data=trainDS)
-mf2 <- train(formula, method="nnet", data=trainDS)
-mf3 <- train(formula, method="lda", data=trainDS)
+#simple train and validate ###############################################
 
-formula2 <- Survived ~ Sex + Pclass + Fare + Age
-mf4 <- train(formula2, method="rf", prox=TRUE, data=trainDS)
-mf5 <- train(formula2, method="nnet", data=trainDS)
-mf6 <- train(formula2, method="lda", data=trainDS)
+formulaT <- SurvivedInt ~ Sex + Pclass + Fare + Age + SibSp + Parch + Embarked
 
-formula3 <- Survived ~ Sex + Pclass + FareG + AgeGroup
-mf7 <- train(formula3, method="rf", prox=TRUE, data=trainDS)
-mf8 <- train(formula3, method="nnet", data=trainDS)
-mf9 <- train(formula3, method="lda", data=trainDS)
+formulaP1 <- Survived ~ Sex + Pclass + Fare
+formulaP2 <- Survived ~ Sex + Pclass + Age
+formulaP3 <- Survived ~ Embarked
+
+formulaP4 <- Survived ~ Pclass + Fare
+
+mfP1 <- train(formulaP1, method='rf', data=trainDS)
+mfP2 <- train(formulaP2, method='rf', data=trainDS)
+mfP3 <- train(formulaP3, method='lda', data=trainDS)
+mfP4 <- train(formulaP4, method='lda', data=trainDS)
+mfP5 <- train(formulaP5, method='lda', data=trainDS)
+
+mfP1$finalModel
+mfP2$finalModel
+mfP3$finalModel
+mfP4$finalModel
+mfP5$finalModel
+
+testPr <- predict(mfP3, testDS)
+confusionMatrix(testPr, testDS$Survived)
+
+#train Model 
+formulaRF1 <- Survived ~ Sex + Pclass + Fare + Age + SibSp + Parch + Embarked
+formulaRF2 <- Survived ~ Sex + Pclass + Fare + Age + Embarked
+formulaRF3 <- Survived ~ Sex + Pclass + Fare
+formulaS1 <- Survived ~ Pclass
+formulaS2 <- Survived ~ Fare
+formulaS3 <- Survived ~ Age
+
+mf1 <- train(formulaRF1, method="rf", prox=TRUE, data=trainDS)
+mf2 <- train(formulaRF2, method="rf", prox=TRUE, data=trainDS)
+mf3 <- train(formulaRF3, method="rf", prox=TRUE, data=trainDS)
+
+mf4 <- train(formulaRF1, method="avNNet", data=trainDS)
+mf5 <- train(formulaRF2, method="avNNet", data=trainDS)
+mf6 <- train(formulaRF3, method="avNNet", data=trainDS)
+
+mf7 <- train(formulaS1, method="lda", data=trainDS)
+mf8 <- train(formulaS2, method="lda", data=trainDS)
+mf9 <- train(formulaS3, method="lda", data=trainDS)
+
+#predict on each ################################################################
+
+testPr <- predict(mf9, testDS)
+confusionMatrix(testPr, testDS$Survived)
 
 predictOnModel <- function(ds) {
   predM1 <- predict(mf1, ds)
@@ -152,6 +193,30 @@ predDF$Survived <- trainDS$Survived
 
 combModFit <- train(Survived ~.,method="rf", prox=TRUE, data=predDF)
 combModFit$finalModel
+
+combModFit2 <- train(Survived ~.,method="nnet", prox=TRUE, data=predDF)
+combModFit2$finalModel
+
+combModFit3 <- train(Survived ~.,method="knn", data=predDF)
+combModFit3$finalModel
+
+combModFit4 <- train(Survived ~.,method="glm", data=predDF)
+combModFit4$finalModel
+
+#simple by Gender #####################################################
+formula <- Survived ~ Pclass + Fare + Age + SibSp + Parch + Embarked
+
+mfFemale <- train(formula, method="rf", prox=TRUE, data=trainBG[[1]])
+mfMale <- train(formula, method="rf", prox=TRUE, data=trainBG[[2]])
+
+predictF <- predict(mfFemale, testBG[[1]])
+predictM <- predict(mfMale, testBG[[2]])
+
+confusionMatrix(predictF, testBG[[1]]$Survived)
+confusionMatrix(predictM, testBG[[2]]$Survived)
+
+compileTest <- data.frame(Survived=as.factor(c(as.character(testBG[[1]]$Survived), as.character(testBG[[2]]$Survived))), Predicted=as.factor(c(as.character(predictF), as.character(predictM))))
+confusionMatrix(compileTest$Predicted, compileTest$Survived)
 
 #validate train Model #################################################
 combPredTrain <- predict(combModFit, predDF)
@@ -174,8 +239,18 @@ failCR$finalModel
 #predict test Model ###################################################
 
 predDFTest <- predictOnModel(testDS)
+
 combPredTest <- predict(combModFit, predDFTest)
 confusionMatrix(combPredTest, testDS$Survived)
+
+combPredTest2 <- predict(combModFit2, predDFTest)
+confusionMatrix(combPredTest2, testDS$Survived)
+
+combPredTest3 <- predict(combModFit3, predDFTest)
+confusionMatrix(combPredTest3, testDS$Survived)
+
+combPredTest4 <- predict(combModFit4, predDFTest)
+confusionMatrix(combPredTest4, testDS$Survived)
 
 confusionMatrix(predDFTest$predM1, testDS$Survived)
 
@@ -189,4 +264,16 @@ combPredKaggle <- predict(combModFit, predDFKaggle)
 testKaggle$Survived <- combPredKaggle
 
 submit <- data.frame(PassengerId = testKaggle$PassengerId, Survived = testKaggle$Survived)
+write.csv(submit, file = "submit.csv", row.names = FALSE)
+
+#by Gender
+testKaggle <- read.csv('test.csv')
+testKaggle <- prepareData(testKaggle)
+
+testKaggleBG <- split(testKaggle, testKaggle$Sex)
+
+predictKF <- predict(mfFemale, testKaggleBG[[1]])
+predictKM <- predict(mfMale, testKaggleBG[[2]])
+
+submit <- data.frame(PassengerId=c(testKaggleBG[[1]]$PassengerId, testKaggleBG[[2]]$PassengerId), Survived=as.factor(c(as.character(predictKF), as.character(predictKM))))
 write.csv(submit, file = "submit.csv", row.names = FALSE)
