@@ -1,0 +1,14 @@
+---
+title: "Step by step analysis"
+output: html_document
+---
+
+#Examine data
+
+******************
+
+#Error rates on different models
+Model | File | Ca | P | pH | SOC | Sand | Total | LB
+------|------|----|---|----|-----|------|-------|---
+GLM on top 5% cor ssFeatures| glmTop5.R | 0.3760926 | 1.173141 | 0.4545637 | 0.6406343 | 0.4664847 | | 0.61348 |
+GLM on addFeatues | glmAddFeatures.R | 0.6352328 | 0.7845864 | 0.6815413 | 0.8993766 | 0.7790011 | | |
