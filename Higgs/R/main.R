@@ -4,7 +4,11 @@ library('doSNOW')
 
 dataSet <- read.csv('../training.csv')
 
-summary(dataSet)
+summary(dataSet[dataSet$Label=='b',])
+summary(dataSet[dataSet$Label=='s',])
+
+head(dataSet[dataSet$Label=='s',])
+as.factor(dataSet[dataSet$Label=='s',]$Weight)
 
 sampleData <- createDataPartition(dataSet$Label, p=0.1, list=FALSE)
 sampleData <- dataSet[sampleData,]
