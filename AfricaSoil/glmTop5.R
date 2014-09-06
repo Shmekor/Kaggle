@@ -1,56 +1,60 @@
 source('prepare.R')
+source('corPlainModel.R')
+source('evaluationMetrics.R')
 
-afCor <- cor(trainDS[ssFeatures], trainDS[targetsAll])
-summary(abs(afCor))
+cvModels <- kaggle.africa.kfoldsTrain(trainDSDer, cvFolds, kaggle.africa.glmTop5.train,
+                                      c(1:15, 17:3577), targetsAll, 0.05, 'glm')
 
-maxPc = 0.05
+kfPredict <- kaggle.africa.kfoldsPredict(cvModels, trainDSDer, kaggle.africa.glmTop5.predict)
+evMetrics <- kaggle.africa.kfEvaluate(kfPredict, cvModels, trainDSDer)
 
-corMax5Ca <- names(sort(abs(afCor[,1]), decreasing = TRUE)[1:(as.integer(nrow(afCor) * maxPc))])
-corMax5P <- names(sort(abs(afCor[,2]), decreasing = TRUE)[1:(as.integer(nrow(afCor) * maxPc))])
-corMax5pH <- names(sort(abs(afCor[,3]), decreasing = TRUE)[1:(as.integer(nrow(afCor) * maxPc))])
-corMax5SOC <- names(sort(abs(afCor[,4]), decreasing = TRUE)[1:(as.integer(nrow(afCor) * maxPc))])
-corMax5Sand <- names(sort(abs(afCor[,5]), decreasing = TRUE)[1:(as.integer(nrow(afCor) * maxPc))])
+colMeans(evMetrics)
+mean(colMeans(evMetrics))
 
-#/////////////////////////////////////////////////////
-set.seed(45453)
+models <- kaggle.africa.glmTop5.train(trainDSDer, c(1:15, 17:3577),  targetsAll, 0.05, 'rf')
+predictions <- kaggle.africa.kfoldsPredict(trainDSDer, cvFolds, models, kaggle.africa.glmTop5.predict)
 
-inTrainCa <- createDataPartition(trainDS$Ca, p=0.75, list=FALSE)
-trainDSCa <- trainDS[inTrainCa,]
-cvDSCa <- trainDS[-inTrainCa,]
+evRes <- kaggle.africa.kfEvaluate(predictions, cvFolds, trainDSDer)
 
-#/////////////////////////////////////////////////////
+colMeans(evRes)
+mean(colMeans(evRes))
 
-simpleGLM <- function(formula, tDS, cvDS, target) {
-  model <- train(formula, method="lm", data=tDS)
-  print(getTrainPerf(model))
-  
-  predict <- predict(model, cvDS)
-  print(rmse(cvDS[,target], predict))
-  
-  predict
-}
+predTest <- kaggle.africa.glmTop5.predict(models, testDSDer)
+evRes <- kaggle.africa.evaluateV(predTest, testDSDer)
+evRes
+mean(evRes)
+#//////////////////////////////////////////////////////
 
-#CV error - 0.3760926
-caPred <- simpleGLM(Ca ~ ., trainDSCa[,c(corMax5Ca, 'Ca')], cvDSCa, 'Ca')
-#CV error - 1.173141
-pPred <- simpleGLM(P ~ ., trainDSCa[,c(corMax5P, 'P')], cvDSCa, 'P')
-#CV error - 0.4545637
-pHPred <- simpleGLM(pH ~ ., trainDSCa[,c(corMax5pH, 'pH')], cvDSCa, 'pH')
-#CV error - 0.6406343
-socPred <- simpleGLM(SOC ~ ., trainDSCa[,c(corMax5SOC, 'SOC')], cvDSCa, 'SOC')
-#CV error - 0.4664847
-sandPred <- simpleGLM(Sand ~ ., trainDSCa[,c(corMax5Sand, 'Sand')], cvDSCa, 'Sand')
+models2 <- kaggle.africa.glmTop5.train(trainDSDer, c(1:3563, 3565:3579),  targetsAll, 0.10, 'glm')
+predictions2 <- kaggle.africa.kfoldsPredict(trainDSDer, cvFolds, models2, kaggle.africa.glmTop5.predict)
+
+evRes2 <- kaggle.africa.kfEvaluate(predictions2, cvFolds, trainDSDer)
+
+colMeans(evRes2)
+mean(colMeans(evRes2))
+
+predTest2 <- kaggle.africa.glmTop5.predict(models2, testDSDer)
+evRes2 <- kaggle.africa.evaluateV(predTest2, testDSDer)
+evRes2
+mean(evRes2)
+#//////////////////////////////////////////////////////
+
+models3 <- kaggle.africa.glmTop5.train(trainDSDer, c(1:3563, 3565:3579),  targetsAll, 0.15, 'glm')
+predictions3 <- kaggle.africa.kfoldsPredict(trainDSDer, cvFolds, models3, kaggle.africa.glmTop5.predict)
+
+evRes3 <- kaggle.africa.kfEvaluate(predictions3, cvFolds, trainDSDer)
+
+colMeans(evRes3)
+mean(colMeans(evRes3))
+
+predTest3 <- kaggle.africa.glmTop5.predict(models3, testDSDer)
+evRes3 <- kaggle.africa.evaluateV(predTest3, testDSDer)
+evRes3
+mean(evRes3)
+#//////////////////////////////////////////////////////
 
 #//////////////////////////////////////////////////////
 
-kaggleTestDS <- read.csv('data/sorted_test.csv')
+kagglePredict <- kaggle.africa.glmTop5.predict(models, kaggleDSDer)
 
-result <- data.frame(PIDN=kaggleTestDS$PIDN)
-
-result$Ca <- simpleGLM(Ca ~ ., trainDS[,c(corMax5Ca, 'Ca')], kaggleTestDS, 'Ca')
-result$P <- simpleGLM(P ~ ., trainDS[,c(corMax5P, 'P')], kaggleTestDS, 'P')
-result$pH <- simpleGLM(pH ~ ., trainDS[,c(corMax5pH, 'pH')], kaggleTestDS, 'pH')
-result$SOC <- simpleGLM(SOC ~ ., trainDS[,c(corMax5SOC, 'SOC')], kaggleTestDS, 'SOC')
-result$Sand <- simpleGLM(Sand ~ ., trainDS[,c(corMax5Sand, 'Sand')], kaggleTestDS, 'Sand')
-
-write.csv(result, file = "data/glmSubmit.csv", row.names = FALSE)
+write.csv(kagglePredict, file = "data/glmSubmit.csv", row.names = FALSE)

@@ -12,3 +12,24 @@ Model | File | Ca | P | pH | SOC | Sand | Total | LB
 ------|------|----|---|----|-----|------|-------|---
 GLM on top 5% cor ssFeatures| glmTop5.R | 0.3760926 | 1.173141 | 0.4545637 | 0.6406343 | 0.4664847 | | 0.61348 |
 GLM on addFeatues | glmAddFeatures.R | 0.6352328 | 0.7845864 | 0.6815413 | 0.8993766 | 0.7790011 | | |
+
+#10-folds mean cv on training set
+Model | File | Ca | P | pH | SOC | Sand | Total | LB
+------|------|----|---|----|-----|------|-------|---
+GLM top5% cor der | glmTop5.R | 0.2823340 | 0.7672750 | 0.4005396 | 0.3051940 | 0.3448364 | 0.4200358 | 0.53094
+GLM top10% cor der | glmTop5.R | 0.1837101 | 0.6321711 | 0.3275879 | 0.2507824 | 0.2768792 | 0.3342261 | 
+
+#Test dataset evaluation
+Model | File | Ca | P | pH | SOC | Sand | Total | LB
+------|------|----|---|----|-----|------|-------|---
+GLM top5% cor der | glmTop5.R | 0.3359163 | 0.8897705 | 0.4503857 | 0.4099679 | 0.4271536 | 0.5026388 | 0.53094
+GLM top10% cor der | glmTop5.R | 0.2949832 | 1.0100424 | 0.4921770 | 0.4061720 | 0.4190315 | 0.5244812 | 
+GLM top15% cor der | glmTop5.R | 0.3779767 | 1.2111954 | 0.5526499 | 0.4373300 | 0.4455770 | 0.6049458 | 
+
+#xgboost 10-kfolds mean evaluation
+Model | File | Ca | P | pH | SOC | Sand | Total | LB
+------|------|----|---|----|-----|------|-------|---
+all features cor der | xgboost.R | 0.3557804 | 0.9708433 | 0.4962190 | 0.4460814 | 0.4305110 | 0.539887 | 
+
+#PCA
+Shown bad results (> 0.6 on test set)

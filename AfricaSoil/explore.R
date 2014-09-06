@@ -1,54 +1,30 @@
 source('prepare.R')
 
-summary(trainDS[addFeatures])
-summary(trainDS[targetsAll])
-#/////////////////////////////////////////////////////
-  
-afCor <- cor(trainDS[ssFeatures], trainDS[targetsAll])
-summary(abs(afCor))
+qplot(trainDS$Ca, trainDS[,ssFeatures[1]], data=trainDS)
 
-maxPc = 0.05
+tCor <- cor(trainDS[,targetsAll])
+abs(tCor)
 
-corMax5Ca <- names(sort(abs(afCor[,1]), decreasing = TRUE)[1:(as.integer(nrow(afCor) * maxPc))])
-corMax5P <- names(sort(abs(afCor[,2]), decreasing = TRUE)[1:(as.integer(nrow(afCor) * maxPc))])
-corMax5pH <- names(sort(abs(afCor[,3]), decreasing = TRUE)[1:(as.integer(nrow(afCor) * maxPc))])
-corMax5SOC <- names(sort(abs(afCor[,4]), decreasing = TRUE)[1:(as.integer(nrow(afCor) * maxPc))])
-corMax5Sand <- names(sort(abs(afCor[,5]), decreasing = TRUE)[1:(as.integer(nrow(afCor) * maxPc))])
+require('xgboost')
 
-#/////////////////////////////////////////////////////
+tDs <- as.matrix(trainDSDer))
 
-inTrainCa <- createDataPartition(trainDS$Ca, p=0.75, list=FALSE)
-trainDSCa <- trainDS[inTrainCa,]
-cvDSCa <- trainDS[-inTrainCa,]
+dtrain <- xgb.DMatrix(as.matrix(trainDSDer[,c(1:15, 17:3577)]), label = trainDSDer$P)
 
-#/////////////////////////////////////////////////////
+bst <- xgboost(data = dtrain, max_depth = 3, eta = 0.5, nround = 60, objective = "reg:linear", eval_metric='rmse')
 
-simpleGLM <- function(formula, tDS, cvDS, target) {
-  model <- train(formula, method="lm", data=tDS)
-  print(getTrainPerf(model))
-  
-  predict <- predict(model, cvDS)
-  #print(rmse(cvDS[,target], predict))
-  
-  predict
-}
+prRes <- predict(bst, as.matrix(trainDSDer[,c(1:15, 17:3577)]))
 
-caPred <- simpleGLM(Ca ~ ., trainDSCa[,c(corMax5Ca, 'Ca')], cvDSCa, 'Ca')
-pPred <- simpleGLM(P ~ ., trainDSCa[,c(corMax5P, 'P')], cvDSCa, 'P')
-pHPred <- simpleGLM(pH ~ ., trainDSCa[,c(corMax5pH, 'pH')], cvDSCa, 'pH')
-socPred <- simpleGLM(SOC ~ ., trainDSCa[,c(corMax5SOC, 'SOC')], cvDSCa, 'SOC')
-sandPred <- simpleGLM(Sand ~ ., trainDSCa[,c(corMax5Sand, 'Sand')], cvDSCa, 'Sand')
+rmse(trainDSDer$Ca, prRes)
+tprRes <- predict(bst, as.matrix(testDSDer[,c(1:15, 17:3577)]))
+rmse(testDSDer$P, tprRes)
 
-#//////////////////////////////////////////////////////
 
-kaggleTestDS <- read.csv('data/sorted_test.csv')
+source('xgboostModel.R')
 
-result <- data.frame(PIDN=kaggleTestDS$PIDN)
+model <- kaggle.africa.xgboostModel.train(trainDSDer, c(1:15, 17:3577),  targetsAll, 1)
+pred <- kaggle.africa.xgboostModel.predict(model, trainDSDer)
+summary(pred)
 
-result$Ca <- simpleGLM(Ca ~ ., trainDS[,c(corMax5Ca, 'Ca')], kaggleTestDS, 'Ca')
-result$P <- simpleGLM(P ~ ., trainDS[,c(corMax5P, 'P')], kaggleTestDS, 'P')
-result$pH <- simpleGLM(pH ~ ., trainDS[,c(corMax5pH, 'pH')], kaggleTestDS, 'pH')
-result$SOC <- simpleGLM(SOC ~ ., trainDS[,c(corMax5SOC, 'SOC')], kaggleTestDS, 'SOC')
-result$Sand <- simpleGLM(Sand ~ ., trainDS[,c(corMax5Sand, 'Sand')], kaggleTestDS, 'Sand')
-
-write.csv(result, file = "data/glmSubmit.csv", row.names = FALSE)
+ev <- kaggle.africa.evaluateV(pred, trainDSDer)
+mean(ev)
